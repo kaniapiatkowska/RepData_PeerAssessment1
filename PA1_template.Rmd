@@ -4,22 +4,72 @@ output:
   html_document:
     keep_md: true
 ---
-
+Prepared by ZKP on the 9th of January 2016.
 
 ## Loading and preprocessing the data
+The variables included in this dataset are:
+<ol>
+<li>steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)</li>
+<li>date: The date on which the measurement was taken in YYYY-MM-DD format</li>
+<li>interval: Identifier for the 5-minute interval in which measurement was taken</li>
+</ol>
+The code below show how to load the data. There is no need to transform these data.
 
-
+```{r, echo=TRUE}
+data<-read.csv("activity.csv", header=TRUE, sep=",", na.strings = "NA")
+summary(data)
+```
 
 ## What is mean total number of steps taken per day?
+For this part of the assignment, I ignore the missing values in the dataset.<br>
+First of all I calculate the total number of steps taken per day and draw a histogram. 
 
+```{r, echo=TRUE}
+library(dplyr)
+data_sum<-summarize(group_by(data, date), total=sum(steps))
+hist(data_sum$total, col="red", breaks=12, main="Total number of steps taken each day", xlab="Total number of steps")
+```
+The mean of the total number of steps taken per day is <b>`r as.integer(mean(data_sum$total, na.rm=TRUE))`</b>.<br>
+The median of the total number of steps taken per day is <b>`r as.integer(median(data_sum$total, na.rm=TRUE))`</b>.
 
 
 ## What is the average daily activity pattern?
+To chech this I make a time series plot of the 5-minute interval and the average number of steps taken, averaged across all days.
+```{r, echo=TRUE}
+data_sum2<-summarize(group_by(data, interval), avg=mean(steps, na.rm = TRUE))
+plot(data_sum2$interval, data_sum2$avg, type="l", xlab="", ylab="Average number of steps taken")
+points(data_sum2 [which.max(data_sum2$avg), ][1,1], data_sum2 [which.max(data_sum2$avg), ][1,2], col="red", pch=16)
+```
 
-
+The 5-minute interval with the number <b>`r data_sum2 [which.max(data_sum2$avg), ][1,1]`</b> and value <b>`r data_sum2 [which.max(data_sum2$avg), ][1,2]`</b>, contains the maximum number of step on average across all the days in the dataset.
 
 ## Imputing missing values
+The total number of missing values in the dataset is <b>`r sum(is.na(data))`</b>.<br>
+I fill these values with the mean for that 5-minute interval and make a new histogram for that data.
 
+```{r, echo=TRUE}
+impute <- transform(data, steps=ifelse(is.na(steps), data_sum2$avg, steps))
 
+impute_sum<-summarize(group_by(impute, date), total=sum(steps))
+hist(impute_sum$total, col="red", breaks=12, main="Total number of steps taken each day", xlab="Total number of steps")
+```
+
+The mean of the total number of steps taken per day is <b>`r as.integer(mean(impute_sum$total, na.rm = TRUE))`</b>.<br>
+The median of the total number of steps taken per day is <b>`r as.integer(median(impute_sum$total, na.rm = TRUE))`</b>.<br>
+The total daily number of steps increase from <b>`r as.integer(sum(data$steps, na.rm = TRUE))`</b> to <b>`r as.integer(sum(impute$steps, na.rm = TRUE))`</b>.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+To calculate this I have to divide the dataset into a two groups and prepare a plot for both.
+
+```{r, echo=TRUE}
+library(lattice)
+impute$date<-strptime(impute$date, "%Y-%m-%d")
+weekdays1 <- c('poniedzia³ek', 'wtorek', 'œroda', 'czwartek', 'pi¹tek')
+
+impute<-mutate(impute, weekdays=ifelse(weekdays(impute$date) %in% weekdays1, 'weekday', 'weekend'))
+impute<-select(impute, steps, interval, weekdays)
+
+impute_sum2<-summarize(group_by(impute, interval, weekdays), avg=mean(steps))
+
+xyplot(avg ~ interval | weekdays, data = impute_sum2, layout = c(1, 2), type="l", xlab="Interval", ylab="Number of steps")
+```
